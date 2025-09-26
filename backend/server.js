@@ -819,10 +819,19 @@ app.get('/api/issues/routing-suggestions', auth, async (req, res) => {
   }
 });
 
-// Finance Department - Expenses (Protected routes)
+// Expenses - Get all expenses (Finance and HR can see all, others see only their own)
 app.get('/api/expenses', auth, async (req, res) => {
   try {
-    const expenses = await Expense.find().sort({ createdAt: -1 });
+    let expenses;
+    
+    if (req.user.department === 'Finance' || req.user.department === 'HR') {
+      // Finance and HR can see all expenses
+      expenses = await Expense.find().sort({ createdAt: -1 });
+    } else {
+      // Other departments can only see their own expenses
+      expenses = await Expense.find({ createdByUserId: req.user._id }).sort({ createdAt: -1 });
+    }
+    
     res.json(expenses);
   } catch (error) {
     console.error('Get expenses error:', error);
@@ -830,12 +839,28 @@ app.get('/api/expenses', auth, async (req, res) => {
   }
 });
 
+// Get pending expenses for HR approval
+app.get('/api/expenses/pending', auth, async (req, res) => {
+  try {
+    if (req.user.department !== 'HR') {
+      return res.status(403).json({ error: 'Only HR users can access pending expenses' });
+    }
+    
+    const pendingExpenses = await Expense.find({ status: 'pending' }).sort({ createdAt: -1 });
+    res.json(pendingExpenses);
+  } catch (error) {
+    console.error('Get pending expenses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Submit expense (any department can submit)
 app.post('/api/expenses', auth, async (req, res) => {
   try {
-    const { description, amount, category, date, createdBy } = req.body;
+    const { description, amount, category, date } = req.body;
     
-    if (!description || !amount || !createdBy) {
-      return res.status(400).json({ error: 'Description, amount, and createdBy are required' });
+    if (!description || !amount) {
+      return res.status(400).json({ error: 'Description and amount are required' });
     }
 
     const expense = new Expense({
@@ -843,13 +868,53 @@ app.post('/api/expenses', auth, async (req, res) => {
       amount: parseFloat(amount),
       category: category || 'office-supplies',
       date: date || new Date(),
-      createdBy
+      createdBy: req.user.name,
+      createdByDepartment: req.user.department,
+      createdByUserId: req.user._id,
+      status: 'pending'
     });
 
     await expense.save();
     res.status(201).json(expense);
   } catch (error) {
     console.error('Create expense error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Approve/Reject expense (HR only)
+app.put('/api/expenses/:id/approve', auth, async (req, res) => {
+  try {
+    if (req.user.department !== 'HR') {
+      return res.status(403).json({ error: 'Only HR users can approve expenses' });
+    }
+    
+    const { status, hrNotes } = req.body;
+    
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be approved or rejected' });
+    }
+    
+    const expense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      {
+        status,
+        approvedBy: req.user.name,
+        approvedByUserId: req.user._id,
+        approvalDate: new Date(),
+        hrNotes: hrNotes || '',
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    if (!expense) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+    
+    res.json(expense);
+  } catch (error) {
+    console.error('Approve expense error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -15,6 +15,10 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
   const [availableUsers, setAvailableUsers] = useState([]);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState('Tech');
+  
+  // Expense management states
+  const [pendingExpenses, setPendingExpenses] = useState([]);
+  const [allExpenses, setAllExpenses] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -29,10 +33,12 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
     };
   }, []);
 
-  // Reload team data whenever the selected department or active tab changes to 'teams'
+  // Reload data whenever the selected department or active tab changes
   useEffect(() => {
     if (activeTab === 'teams') {
       loadTeamData();
+    } else if (activeTab === 'expenses') {
+      loadExpenseData();
     }
   }, [selectedDepartment, activeTab]);
 
@@ -188,6 +194,36 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
     }
   };
 
+  // Expense management functions
+  const loadExpenseData = async () => {
+    try {
+      const [pendingResponse, allResponse] = await Promise.all([
+        ApiService.get('/expenses/pending'),
+        ApiService.get('/expenses')
+      ]);
+      
+      setPendingExpenses(pendingResponse || []);
+      setAllExpenses(allResponse || []);
+    } catch (error) {
+      console.error('Failed to load expense data:', error);
+      setNotification('Failed to load expense data');
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const handleExpenseApproval = async (expenseId, status, hrNotes = '') => {
+    try {
+      await ApiService.put(`/expenses/${expenseId}/approve`, { status, hrNotes });
+      await loadExpenseData();
+      setNotification(`Expense ${status} successfully`);
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('Failed to update expense:', error);
+      setNotification('Failed to update expense status');
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -205,6 +241,15 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
       case 'medium': return 'bg-yellow-100 text-yellow-800';
       case 'high': return 'bg-orange-100 text-orange-800';
       case 'urgent': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getExpenseStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -353,6 +398,16 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
                 }`}
               >
                 Team Management
+              </button>
+              <button
+                onClick={() => setActiveTab('expenses')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'expenses'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Budget Expenses
               </button>
             </nav>
           </div>
@@ -607,6 +662,233 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
                 >
                   Cancel
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Budget Expenses Tab */}
+        {activeTab === 'expenses' && (
+          <div className="space-y-6">
+            {/* Expense Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-bold">P</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Pending Approval</dt>
+                        <dd className="text-lg font-medium text-gray-900">{pendingExpenses.length}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-bold">✓</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Approved</dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          {allExpenses.filter(expense => expense.status === 'approved').length}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
+                        <span className="text-white font-bold">✗</span>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Rejected</dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          {allExpenses.filter(expense => expense.status === 'rejected').length}
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Expenses for Approval */}
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Pending Budget Expenses</h3>
+                <p className="text-sm text-gray-600">Review and approve/reject expense requests from departments</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Submitted By
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {pendingExpenses.map((expense) => (
+                      <tr key={expense._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{expense.description}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">${expense.amount?.toFixed(2)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            {expense.category}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{expense.createdByDepartment}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{expense.createdBy}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {new Date(expense.date).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleExpenseApproval(expense._id, 'approved')}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                const notes = prompt('Enter rejection notes (optional):');
+                                handleExpenseApproval(expense._id, 'rejected', notes || '');
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pendingExpenses.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No pending expenses to review.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* All Expenses History */}
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">All Budget Expenses</h3>
+                <p className="text-sm text-gray-600">Complete history of all expense requests</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Submitted By
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Approved By
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {allExpenses.map((expense) => (
+                      <tr key={expense._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{expense.description}</div>
+                          <div className="text-sm text-gray-500">{expense.category}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">${expense.amount?.toFixed(2)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{expense.createdByDepartment}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{expense.createdBy}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getExpenseStatusColor(expense.status)}`}>
+                            {expense.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{expense.approvedBy || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{expense.hrNotes || '-'}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {allExpenses.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No expenses found.
+                  </div>
+                )}
               </div>
             </div>
           </div>

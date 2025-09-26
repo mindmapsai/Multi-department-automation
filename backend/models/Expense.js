@@ -14,7 +14,7 @@ const expenseSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['office-supplies', 'travel', 'equipment', 'software', 'marketing']
+    enum: ['office-supplies', 'travel', 'equipment', 'software', 'marketing', 'hardware', 'maintenance', 'training']
   },
   date: {
     type: Date,
@@ -24,7 +24,39 @@ const expenseSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  createdByDepartment: {
+    type: String,
+    required: true,
+    enum: ['HR', 'Tech', 'Finance', 'IT']
+  },
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  approvedBy: {
+    type: String
+  },
+  approvedByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvalDate: {
+    type: Date
+  },
+  hrNotes: {
+    type: String
+  },
   createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
     type: Date,
     default: Date.now
   }
