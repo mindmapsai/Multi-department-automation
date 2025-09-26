@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
-import HRDashboard from './components/HRDashboard';
+import EnhancedHRDashboard from './components/EnhancedHRDashboard';
 import TechDashboard from './components/TechDashboard';
 import FinanceDashboard from './components/FinanceDashboard';
+import ITDashboard from './components/ITDashboard';
+import AIAssistant from './components/AIAssistant';
 import ApiService from './services/api';
 import './App.css';
 
@@ -61,13 +63,18 @@ function App() {
             path="/dashboard" 
             element={
               user ? (
-                user.department === 'HR' ? (
-                  <HRDashboard user={user} onLogout={handleLogout} />
-                ) : user.department === 'Tech' ? (
-                  <TechDashboard user={user} onLogout={handleLogout} />
-                ) : (
-                  <FinanceDashboard user={user} onLogout={handleLogout} />
-                )
+                <>
+                  {user.department === 'HR' ? (
+                    <EnhancedHRDashboard user={user} onLogout={handleLogout} />
+                  ) : user.department === 'Tech' ? (
+                    <TechDashboard user={user} onLogout={handleLogout} />
+                  ) : user.department === 'IT' ? (
+                    <ITDashboard user={user} onLogout={handleLogout} />
+                  ) : (
+                    <FinanceDashboard user={user} onLogout={handleLogout} />
+                  )}
+                  <AIAssistant user={user} />
+                </>
               ) : (
                 <Navigate to="/login" />
               )

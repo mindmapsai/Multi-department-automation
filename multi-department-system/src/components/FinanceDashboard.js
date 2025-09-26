@@ -11,9 +11,22 @@ const FinanceDashboard = ({ user, onLogout }) => {
     category: 'office-supplies',
     date: new Date().toISOString().split('T')[0]
   });
+  
+  // Issue management states
+  const [departmentIssues, setDepartmentIssues] = useState([]);
 
   useEffect(() => {
     loadExpenses();
+    loadDepartmentIssues();
+    
+    // Set up polling for issue updates
+    const interval = setInterval(() => {
+      loadDepartmentIssues();
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const loadExpenses = async () => {
@@ -24,6 +37,24 @@ const FinanceDashboard = ({ user, onLogout }) => {
       console.error('Failed to load expenses:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDepartmentIssues = async () => {
+    try {
+      const deptIssues = await ApiService.get('/issues/department/Finance');
+      setDepartmentIssues(deptIssues || []);
+    } catch (error) {
+      console.error('Failed to load department issues:', error);
+    }
+  };
+
+  const updateIssueStatus = async (issueId, newStatus) => {
+    try {
+      await ApiService.put(`/issues/${issueId}`, { status: newStatus });
+      loadDepartmentIssues(); // Refresh department issues
+    } catch (error) {
+      console.error('Error updating issue status:', error);
     }
   };
 
@@ -77,6 +108,27 @@ const FinanceDashboard = ({ user, onLogout }) => {
       const expenseDate = new Date(expense.date);
       return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
     }).reduce((total, expense) => total + expense.amount, 0);
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'routed': return 'bg-blue-100 text-blue-800';
+      case 'working': return 'bg-indigo-100 text-indigo-800';
+      case 'resolved': return 'bg-green-100 text-green-800';
+      case 'closed': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'low': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'urgent': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
@@ -289,6 +341,100 @@ const FinanceDashboard = ({ user, onLogout }) => {
               )}
             </ul>
           </div>
+
+          {/* Issues Assigned to Finance Department */}
+          {departmentIssues.length > 0 && (
+            <div className="bg-white shadow rounded-lg mt-8">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Issues Assigned to Finance Department</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Issue
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Reported By
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Priority
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {departmentIssues.filter(issue => issue && issue.status && issue._id).map((issue) => (
+                      <tr key={issue._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{issue.title || 'No title'}</div>
+                            <div className="text-sm text-gray-500">{issue.description || 'No description'}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{issue.reportedBy || 'Unknown'}</div>
+                          <div className="text-sm text-gray-500">{issue.reportedByDepartment || 'Unknown'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            {issue.category || 'other'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(issue.priority)}`}>
+                            {issue.priority || 'medium'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(issue.status)}`}>
+                            {issue.status || 'pending'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex flex-col space-y-1">
+                            {issue.status === 'routed' && (
+                              <button
+                                onClick={() => updateIssueStatus(issue._id, 'working')}
+                                className="text-indigo-600 hover:text-indigo-900"
+                              >
+                                Start Working
+                              </button>
+                            )}
+                            {issue.status === 'working' && (
+                              <button
+                                onClick={() => updateIssueStatus(issue._id, 'resolved')}
+                                className="text-green-600 hover:text-green-900"
+                              >
+                                Mark Resolved
+                              </button>
+                            )}
+                            {issue.status === 'resolved' && (
+                              <button
+                                onClick={() => updateIssueStatus(issue._id, 'working')}
+                                className="text-yellow-600 hover:text-yellow-900"
+                              >
+                                Reopen
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

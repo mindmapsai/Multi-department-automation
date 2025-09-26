@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
   department: {
     type: String,
     required: true,
-    enum: ['HR', 'Tech', 'Finance']
+    enum: ['HR', 'Tech', 'Finance', 'IT']
   },
   createdAt: {
     type: Date,

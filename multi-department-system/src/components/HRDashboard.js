@@ -6,17 +6,21 @@ const HRDashboard = ({ user, onLogout }) => {
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('issues');
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [availableTechUsers, setAvailableTechUsers] = useState([]);
-  const [unassignedTechUsers, setUnassignedTechUsers] = useState([]);
+  const [routingSuggestions, setRoutingSuggestions] = useState([]);
+  const [showRoutingModal, setShowRoutingModal] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
 
   useEffect(() => {
     loadIssues();
+    loadRoutingSuggestions();
     loadTeamData();
-    
+
     // Set up polling to check for new issues every 5 seconds
     const interval = setInterval(() => {
       loadIssues();
+      loadRoutingSuggestions();
       if (activeTab === 'team') {
         loadTeamData();
       }
@@ -40,17 +44,53 @@ const HRDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const loadTeamData = async () => {
+  const loadRoutingSuggestions = async () => {
     try {
-      const [teamData, unassignedData] = await Promise.all([
-        ApiService.getMyTeam(),
-        ApiService.getUnassignedTechUsers()
-      ]);
-      setTeamMembers(teamData.techMembers || []);
-      setUnassignedTechUsers(unassignedData || []);
+      const suggestions = await ApiService.get('/issues/routing-suggestions');
+      setRoutingSuggestions(suggestions || []);
     } catch (error) {
-      console.error('Failed to load team data:', error);
+      console.error('Failed to load routing suggestions:', error);
     }
+  };
+
+  const handleRouteToDepartment = async () => {
+    if (!selectedIssue || !selectedDepartment) {
+      setNotification('Please select both issue and department');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    try {
+      const response = await ApiService.post(`/issues/${selectedIssue._id}/route-to-department`, {
+        department: selectedDepartment,
+        assignedUserId: selectedUser || null
+      });
+
+      console.log('Route response:', response);
+
+      setShowRoutingModal(false);
+      setSelectedIssue(null);
+      setSelectedDepartment('');
+      setSelectedUser('');
+
+      // Refresh data
+      loadIssues();
+      loadRoutingSuggestions();
+
+      setNotification(`Issue "${response.issue.title}" routed to ${selectedDepartment} successfully`);
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('Error routing issue to department:', error);
+      setNotification(`Failed to route issue: ${error.response?.data?.error || error.message}`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const openRoutingModal = (issue) => {
+    setSelectedIssue(issue);
+    setSelectedDepartment('');
+    setSelectedUser('');
+    setShowRoutingModal(true);
   };
 
   const handleAddTeamMember = async (techUserId) => {
@@ -150,14 +190,14 @@ const HRDashboard = ({ user, onLogout }) => {
                 Issues Management
               </button>
               <button
-                onClick={() => setActiveTab('team')}
+                onClick={() => setActiveTab('routing')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'team'
+                  activeTab === 'routing'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Team Management
+                Issue Routing
               </button>
             </nav>
           </div>
@@ -183,7 +223,7 @@ const HRDashboard = ({ user, onLogout }) => {
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Pending Issues</dt>
                       <dd className="text-lg font-medium text-gray-900">
-                        {issues.filter(issue => issue.status === 'pending').length}
+                        {issues.filter(issue => issue && issue.status === 'pending').length}
                       </dd>
                     </dl>
                   </div>
@@ -203,7 +243,7 @@ const HRDashboard = ({ user, onLogout }) => {
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Working On</dt>
                       <dd className="text-lg font-medium text-gray-900">
-                        {issues.filter(issue => issue.status === 'working').length}
+                        {issues.filter(issue => issue && issue.status === 'working').length}
                       </dd>
                     </dl>
                   </div>
@@ -223,7 +263,7 @@ const HRDashboard = ({ user, onLogout }) => {
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Resolved</dt>
                       <dd className="text-lg font-medium text-gray-900">
-                        {issues.filter(issue => issue.status === 'resolved').length}
+                        {issues.filter(issue => issue && issue.status === 'resolved').length}
                       </dd>
                     </dl>
                   </div>
@@ -259,24 +299,24 @@ const HRDashboard = ({ user, onLogout }) => {
                   No issues reported yet.
                 </li>
               ) : (
-                issues.map((issue) => (
+                issues.filter(issue => issue && issue._id).map((issue) => (
                   <li key={issue._id} className="px-4 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {issue.title}
+                            {issue.title || 'No title'}
                           </p>
                           <div className="ml-2 flex-shrink-0 flex">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(issue.status)}`}>
-                              {issue.status}
+                              {issue.status || 'pending'}
                             </span>
                           </div>
                         </div>
-                        <p className="mt-1 text-sm text-gray-500">{issue.description}</p>
+                        <p className="mt-1 text-sm text-gray-500">{issue.description || 'No description'}</p>
                         <div className="mt-2 flex items-center justify-between">
                           <p className="text-xs text-gray-400">
-                            Reported by: <span className="font-medium text-gray-600">{issue.reportedBy}</span> | {new Date(issue.createdAt).toLocaleDateString()}
+                            Reported by: <span className="font-medium text-gray-600">{issue.reportedBy || 'Unknown'}</span> | {new Date(issue.createdAt).toLocaleDateString()}
                             {issue.updatedAt && (
                               <span className="ml-2 text-green-600">
                                 • Updated: {new Date(issue.updatedAt).toLocaleDateString()}
@@ -333,6 +373,82 @@ const HRDashboard = ({ user, onLogout }) => {
               )}
             </ul>
           </div>
+            </>
+          )}
+
+          {activeTab === 'routing' && (
+            <>
+              {/* Routing Suggestions */}
+              <div className="bg-white shadow overflow-hidden sm:rounded-md mb-6">
+                <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">Pending Issues for Routing</h3>
+                      <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                        Route pending issues to the appropriate departments based on category and priority.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        loadRoutingSuggestions();
+                        loadIssues();
+                      }}
+                      className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                    >
+                      🔄 Refresh
+                    </button>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Pending issues: {routingSuggestions.length} | Last updated: {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+                <ul className="divide-y divide-gray-200">
+                  {routingSuggestions.length === 0 ? (
+                    <li className="px-4 py-4 text-center text-gray-500">
+                      No pending issues to route. All issues have been assigned to departments.
+                    </li>
+                  ) : (
+                    routingSuggestions.filter(suggestion => suggestion && suggestion.issueId).map((suggestion) => (
+                      <li key={suggestion.issueId} className="px-4 py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {suggestion.title || 'No title'}
+                              </p>
+                              <div className="ml-2 flex-shrink-0 flex">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  suggestion.confidence === 'high' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {suggestion.confidence || 'medium'} confidence
+                                </span>
+                              </div>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-500">{suggestion.category || 'other'} • {suggestion.priority || 'medium'}</p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              Reported by: <span className="font-medium text-gray-600">{suggestion.reportedBy || 'Unknown'}</span> ({suggestion.reportedByDepartment || 'Unknown'})
+                            </p>
+                            <p className="mt-1 text-xs text-blue-600">
+                              Suggested: <span className="font-medium">{suggestion.suggestedDepartment || 'Tech'}</span>
+                              {suggestion.availableUsers && suggestion.availableUsers.length > 0 && (
+                                <span className="ml-2">
+                                  • Available users: {suggestion.availableUsers.length}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => openRoutingModal(suggestion)}
+                            className="ml-4 px-3 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+                          >
+                            Route Issue
+                          </button>
+                        </div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
             </>
           )}
 
@@ -424,6 +540,79 @@ const HRDashboard = ({ user, onLogout }) => {
           )}
         </div>
       </main>
+
+      {/* Routing Modal */}
+      {showRoutingModal && selectedIssue && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Route Issue to Department</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Issue: <strong>{selectedIssue.title}</strong>
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Category: {selectedIssue.category} • Priority: {selectedIssue.priority}
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Department:
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Choose department...</option>
+                <option value="IT">IT Department</option>
+                <option value="Finance">Finance Department</option>
+                <option value="HR">HR Department</option>
+                <option value="Tech">Tech Department</option>
+              </select>
+            </div>
+
+            {selectedDepartment && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign to Specific User (Optional):
+                </label>
+                <select
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Auto-assign to first available user</option>
+                  {/* This would be populated with actual users from the selected department */}
+                  <option value="user1">User 1 ({selectedDepartment})</option>
+                  <option value="user2">User 2 ({selectedDepartment})</option>
+                </select>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRoutingModal(false);
+                  setSelectedIssue(null);
+                  setSelectedDepartment('');
+                  setSelectedUser('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRouteToDepartment}
+                disabled={!selectedDepartment}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Route Issue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

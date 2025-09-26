@@ -127,6 +127,7 @@ const Login = ({ onLogin }) => {
                   <option value="">Select your department</option>
                   <option value="HR">Human Resources (HR)</option>
                   <option value="Tech">Technology (Tech)</option>
+                  <option value="IT">Information Technology (IT)</option>
                   <option value="Finance">Finance</option>
                 </select>
               </div>

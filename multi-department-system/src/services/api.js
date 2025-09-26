@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'http://localhost:3002/api';
 
 class ApiService {
   constructor() {
@@ -7,6 +7,12 @@ class ApiService {
 
   // Helper method to get headers with auth token
   getHeaders() {
+    // Always get the latest token from localStorage
+    const currentToken = localStorage.getItem('authToken');
+    if (currentToken) {
+      this.token = currentToken;
+    }
+    
     const headers = {
       'Content-Type': 'application/json',
     };
@@ -28,6 +34,67 @@ class ApiService {
   clearToken() {
     this.token = null;
     localStorage.removeItem('authToken');
+  }
+
+  // Generic HTTP methods
+  async get(endpoint) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      console.error(`API GET ${endpoint} failed:`, error);
+      throw new Error(error.error || `GET ${endpoint} failed with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  }
+
+  async post(endpoint, data = {}) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || `POST ${endpoint} failed`);
+    }
+    
+    return response.json();
+  }
+
+  async put(endpoint, data = {}) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || `PUT ${endpoint} failed`);
+    }
+    
+    return response.json();
+  }
+
+  async delete(endpoint) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || `DELETE ${endpoint} failed`);
+    }
+    
+    return response.json();
   }
 
   // Authentication
