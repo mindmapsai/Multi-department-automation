@@ -29,6 +29,13 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
     };
   }, []);
 
+  // Reload team data whenever the selected department or active tab changes to 'teams'
+  useEffect(() => {
+    if (activeTab === 'teams') {
+      loadTeamData();
+    }
+  }, [selectedDepartment, activeTab]);
+
   const loadData = async () => {
     try {
       console.log('Loading HR dashboard data...');
@@ -38,14 +45,13 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
         const testResponse = await ApiService.get('/test-hr');
         console.log('HR test endpoint response:', testResponse);
       } catch (testError) {
-        console.error('HR test endpoint failed:', testError);
+        console.warn('HR test endpoint failed, continuing to load rest of data:', testError);
         setNotification(`Authentication or connection issue: ${testError.message}`);
-        setLoading(false);
-        return;
+        // Do not return; continue to attempt loading other data
       }
       
       // Load issues
-      const issuesResponse = await ApiService.get('/issues');
+      const issuesResponse = await ApiService.getAllIssues();
       console.log('Issues response:', issuesResponse);
       setIssues(issuesResponse || []);
       
@@ -77,11 +83,17 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
   const loadTeamData = async () => {
     try {
       const [teamResponse, usersResponse] = await Promise.all([
-        ApiService.get('/teams/my-team'),
-        ApiService.get(`/users/department/${selectedDepartment}`)
+        ApiService.getMyTeam(),
+        // Get only unassigned users for the selected department
+        ApiService.getUnassignedUsers(selectedDepartment)
       ]);
       
-      const currentTeamMembers = teamResponse.techMembers || [];
+      // Pick the correct members array based on the selected department
+      const currentTeamMembers = selectedDepartment === 'Tech'
+        ? (teamResponse.techMembers || [])
+        : selectedDepartment === 'IT'
+          ? (teamResponse.itMembers || [])
+          : (teamResponse.financeMembers || []);
       const allDepartmentUsers = usersResponse || [];
       
       // Filter out users who are already team members
@@ -150,26 +162,28 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
 
   const handleAddTeamMember = async (userId) => {
     try {
-      await ApiService.post('/teams/add-member', { techUserId: userId });
+      // Use department-aware API method
+      await ApiService.addTeamMemberDept(userId, selectedDepartment);
       await loadTeamData();
       setNotification('Team member added successfully');
       setTimeout(() => setNotification(null), 3000);
     } catch (error) {
       console.error('Failed to add team member:', error);
-      setNotification('Failed to add team member');
+      setNotification(`Failed to add team member: ${error.message || 'Unknown error'}`);
       setTimeout(() => setNotification(null), 3000);
     }
   };
 
   const handleRemoveTeamMember = async (userId) => {
     try {
-      await ApiService.delete(`/teams/remove-member/${userId}`);
+      // Use department-aware API method
+      await ApiService.removeTeamMemberDept(userId, selectedDepartment);
       await loadTeamData();
       setNotification('Team member removed successfully');
       setTimeout(() => setNotification(null), 3000);
     } catch (error) {
       console.error('Failed to remove team member:', error);
-      setNotification('Failed to remove team member');
+      setNotification(`Failed to remove team member: ${error.message || 'Unknown error'}`);
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -331,7 +345,6 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
               <button
                 onClick={() => {
                   setActiveTab('teams');
-                  loadTeamData();
                 }}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'teams'
@@ -484,8 +497,8 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
                   <button
                     key={dept}
                     onClick={() => {
+                      // Update selected department; loadTeamData will run via useEffect
                       setSelectedDepartment(dept);
-                      loadTeamData();
                     }}
                     className={`px-4 py-2 rounded-md font-medium ${
                       selectedDepartment === dept

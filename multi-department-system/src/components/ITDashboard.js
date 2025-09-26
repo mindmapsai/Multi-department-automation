@@ -30,15 +30,15 @@ const ITDashboard = ({ user, onLogout }) => {
       
       // Fetch issues assigned to IT department
       const assignedIssuesResponse = await ApiService.get('/issues/department/IT');
-      setIssues(assignedIssuesResponse.data || []);
+      setIssues(assignedIssuesResponse || []);
       
       // Fetch issues created by this IT user
       const myIssuesResponse = await ApiService.get(`/issues/user/${user.name}`);
-      setMyIssues(myIssuesResponse.data || []);
+      setMyIssues(myIssuesResponse || []);
       
       // Calculate stats
-      const assignedIssues = assignedIssuesResponse.data || [];
-      const myCreatedIssues = myIssuesResponse.data || [];
+      const assignedIssues = assignedIssuesResponse || [];
+      const myCreatedIssues = myIssuesResponse || [];
       
       setStats({
         assigned: assignedIssues.filter(issue => issue.status === 'routed').length,

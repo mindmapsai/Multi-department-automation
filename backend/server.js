@@ -77,6 +77,53 @@ app.get('/api/test-hr', auth, async (req, res) => {
   }
 });
 
+// HR-only: Change a user's department and update team memberships
+app.post('/api/users/:userId/change-department', auth, async (req, res) => {
+  try {
+    if (req.user.department !== 'HR') {
+      return res.status(403).json({ error: 'Only HR users can change user departments' });
+    }
+
+    const { userId } = req.params;
+    const { newDepartment } = req.body;
+    const allowedDepartments = ['HR', 'Tech', 'Finance', 'IT'];
+
+    if (!newDepartment || !allowedDepartments.includes(newDepartment)) {
+      return res.status(400).json({ error: 'newDepartment must be one of HR, Tech, Finance, IT' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const oldDepartment = user.department;
+    user.department = newDepartment;
+    await user.save();
+
+    // Remove this user from any team membership lists regardless of department
+    const teams = await Team.find({
+      $or: [
+        { techMembers: userId },
+        { itMembers: userId },
+        { financeMembers: userId }
+      ]
+    });
+
+    for (const team of teams) {
+      team.techMembers = team.techMembers.filter(m => m.toString() !== userId);
+      team.itMembers = team.itMembers.filter(m => m.toString() !== userId);
+      team.financeMembers = team.financeMembers.filter(m => m.toString() !== userId);
+      await team.save();
+    }
+
+    res.json({ message: 'Department updated successfully', user: { id: user._id, name: user.name, email: user.email, oldDepartment, newDepartment } });
+  } catch (error) {
+    console.error('Change user department error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Create sample issue for testing (temporary)
 app.post('/api/create-sample-issue', auth, async (req, res) => {
   try {
@@ -202,26 +249,31 @@ app.post('/api/auth/signin', async (req, res) => {
   }
 });
 
-// Team Management - HR can manage tech team members
+// Team Management - HR can manage members across departments
 app.get('/api/teams/my-team', auth, async (req, res) => {
   try {
     if (req.user.department !== 'HR') {
       return res.status(403).json({ error: 'Only HR users can access team management' });
     }
 
-    const team = await Team.findOne({ hrUser: req.user._id }).populate('techMembers', 'name email');
+    const team = await Team.findOne({ hrUser: req.user._id })
+      .populate('techMembers', 'name email department')
+      .populate('itMembers', 'name email department')
+      .populate('financeMembers', 'name email department');
     
     if (!team) {
       // Create empty team for HR user
       const newTeam = new Team({
         hrUser: req.user._id,
-        techMembers: []
+        techMembers: [],
+        itMembers: [],
+        financeMembers: []
       });
       await newTeam.save();
-      return res.json({ hrUser: req.user, techMembers: [] });
+      return res.json({ hrUser: req.user, techMembers: [], itMembers: [], financeMembers: [] });
     }
 
-    res.json({ hrUser: req.user, techMembers: team.techMembers });
+    res.json({ hrUser: req.user, techMembers: team.techMembers, itMembers: team.itMembers, financeMembers: team.financeMembers });
   } catch (error) {
     console.error('Get team error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -259,23 +311,24 @@ app.get('/api/users/department/:department', auth, async (req, res) => {
   }
 });
 
-// Add tech member to HR team
+// Add member to HR team for a specific department
 app.post('/api/teams/add-member', auth, async (req, res) => {
   try {
     if (req.user.department !== 'HR') {
       return res.status(403).json({ error: 'Only HR users can add team members' });
     }
 
-    const { techUserId } = req.body;
+    const { userId, department } = req.body;
     
-    if (!techUserId) {
-      return res.status(400).json({ error: 'Tech user ID is required' });
+    const allowedDepartments = ['Tech', 'IT', 'Finance'];
+    if (!userId || !department || !allowedDepartments.includes(department)) {
+      return res.status(400).json({ error: 'userId and valid department (Tech, IT, Finance) are required' });
     }
 
-    // Check if tech user exists
-    const techUser = await User.findById(techUserId);
-    if (!techUser || techUser.department !== 'Tech') {
-      return res.status(400).json({ error: 'Invalid tech user' });
+    // Check if user exists and matches department
+    const targetUser = await User.findById(userId);
+    if (!targetUser || targetUser.department !== department) {
+      return res.status(400).json({ error: 'Invalid user or department mismatch' });
     }
 
     // Find or create team for HR user
@@ -283,63 +336,120 @@ app.post('/api/teams/add-member', auth, async (req, res) => {
     if (!team) {
       team = new Team({
         hrUser: req.user._id,
-        techMembers: []
+        techMembers: [],
+        itMembers: [],
+        financeMembers: []
       });
+    } else {
+      // Ensure arrays exist for older documents
+      team.techMembers = team.techMembers || [];
+      team.itMembers = team.itMembers || [];
+      team.financeMembers = team.financeMembers || [];
     }
 
-    // Check if tech user is already in team
-    if (team.techMembers.includes(techUserId)) {
-      return res.status(400).json({ error: 'Tech user is already in your team' });
+    // Prevent duplicates across all arrays
+    const alreadyInTeam = [
+      ...team.techMembers.map(id => id.toString()),
+      ...team.itMembers.map(id => id.toString()),
+      ...team.financeMembers.map(id => id.toString())
+    ].includes(userId);
+    if (alreadyInTeam) {
+      return res.status(400).json({ error: 'User is already in your team' });
     }
 
-    // Add tech user to team
-    team.techMembers.push(techUserId);
+    // Add to the appropriate array
+    if (department === 'Tech') team.techMembers.push(userId);
+    if (department === 'IT') team.itMembers.push(userId);
+    if (department === 'Finance') team.financeMembers.push(userId);
+
     await team.save();
 
-    // Populate and return updated team
-    await team.populate('techMembers', 'name email');
-    res.json({ message: 'Tech member added successfully', techMembers: team.techMembers });
+    // Fetch the updated team with populated fields
+    const populatedTeam = await Team.findById(team._id)
+      .populate('techMembers', 'name email department')
+      .populate('itMembers', 'name email department')
+      .populate('financeMembers', 'name email department');
+    
+    res.json({ 
+      message: 'Member added successfully', 
+      techMembers: populatedTeam.techMembers,
+      itMembers: populatedTeam.itMembers,
+      financeMembers: populatedTeam.financeMembers
+    });
   } catch (error) {
     console.error('Add team member error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Remove tech member from HR team
-app.delete('/api/teams/remove-member/:techUserId', auth, async (req, res) => {
+// Remove member from HR team for a specific department
+app.delete('/api/teams/remove-member/:userId', auth, async (req, res) => {
   try {
     if (req.user.department !== 'HR') {
       return res.status(403).json({ error: 'Only HR users can remove team members' });
     }
 
-    const { techUserId } = req.params;
+    const { userId } = req.params;
+    const { department } = req.query; // department can be passed as query param
+
+    const allowedDepartments = ['Tech', 'IT', 'Finance'];
+    if (!department || !allowedDepartments.includes(department)) {
+      return res.status(400).json({ error: 'Valid department (Tech, IT, Finance) is required as query param' });
+    }
 
     const team = await Team.findOne({ hrUser: req.user._id });
     if (!team) {
       return res.status(404).json({ error: 'Team not found' });
     }
 
-    // Remove tech user from team
-    team.techMembers = team.techMembers.filter(memberId => memberId.toString() !== techUserId);
+    // Ensure arrays exist for older documents
+    team.techMembers = team.techMembers || [];
+    team.itMembers = team.itMembers || [];
+    team.financeMembers = team.financeMembers || [];
+
+    // Remove user from the specified department list
+    if (department === 'Tech') {
+      team.techMembers = team.techMembers.filter(memberId => memberId.toString() !== userId);
+    } else if (department === 'IT') {
+      team.itMembers = team.itMembers.filter(memberId => memberId.toString() !== userId);
+    } else if (department === 'Finance') {
+      team.financeMembers = team.financeMembers.filter(memberId => memberId.toString() !== userId);
+    }
+
     await team.save();
 
-    // Populate and return updated team
-    await team.populate('techMembers', 'name email');
-    res.json({ message: 'Tech member removed successfully', techMembers: team.techMembers });
+    // Fetch the updated team with populated fields
+    const populatedTeam = await Team.findById(team._id)
+      .populate('techMembers', 'name email department')
+      .populate('itMembers', 'name email department')
+      .populate('financeMembers', 'name email department');
+    
+    res.json({ 
+      message: 'Member removed successfully', 
+      techMembers: populatedTeam.techMembers,
+      itMembers: populatedTeam.itMembers,
+      financeMembers: populatedTeam.financeMembers
+    });
   } catch (error) {
     console.error('Remove team member error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get HR details for tech user
+// Get HR details for any non-HR user
 app.get('/api/teams/my-hr', auth, async (req, res) => {
   try {
-    if (req.user.department !== 'Tech') {
-      return res.status(403).json({ error: 'Only Tech users can access this endpoint' });
+    if (req.user.department === 'HR') {
+      return res.status(403).json({ error: 'HR users do not have an assigned HR' });
     }
 
-    const team = await Team.findOne({ techMembers: req.user._id }).populate('hrUser', 'name email');
+    const team = await Team.findOne({ 
+      $or: [
+        { techMembers: req.user._id },
+        { itMembers: req.user._id },
+        { financeMembers: req.user._id }
+      ]
+    }).populate('hrUser', 'name email');
     
     if (!team) {
       return res.json({ assignedHR: null, message: 'You are not assigned to any HR team yet' });
@@ -352,36 +462,45 @@ app.get('/api/teams/my-hr', auth, async (req, res) => {
   }
 });
 
-// Get all unassigned tech users (for HR to see who needs to be added)
-app.get('/api/teams/unassigned-tech', auth, async (req, res) => {
+// Get all unassigned users by department (for HR to see who needs to be added)
+app.get('/api/teams/unassigned/:department', auth, async (req, res) => {
   try {
+    console.log('🔍 Unassigned users endpoint hit - User:', req.user.name, 'Department:', req.user.department, 'Requested dept:', req.params.department);
+    
     if (req.user.department !== 'HR') {
+      console.log('❌ Access denied - user is not HR');
       return res.status(403).json({ error: 'Only HR users can access this endpoint' });
     }
 
-    // Get all tech users
-    const allTechUsers = await User.find({ department: 'Tech' }).select('name email');
+    const { department } = req.params;
+    const allowedDepartments = ['Tech', 'IT', 'Finance'];
+    if (!allowedDepartments.includes(department)) {
+      return res.status(400).json({ error: 'Invalid department. Use Tech, IT, or Finance' });
+    }
+
+    // Get all users of the department
+    const allDeptUsers = await User.find({ department }).select('name email');
     
-    // Get all assigned tech users
-    const teams = await Team.find({}).populate('techMembers', '_id');
-    const assignedTechIds = new Set();
+    // Get all assigned users across all teams for the given department
+    const teams = await Team.find({});
+    const assignedIds = new Set();
     teams.forEach(team => {
-      team.techMembers.forEach(member => {
-        assignedTechIds.add(member._id.toString());
-      });
+      const list = department === 'Tech' ? (team.techMembers || []) : department === 'IT' ? (team.itMembers || []) : (team.financeMembers || []);
+      list.forEach(memberId => assignedIds.add(memberId.toString()));
     });
 
-    // Filter unassigned tech users
-    const unassignedTechUsers = allTechUsers.filter(user => 
-      !assignedTechIds.has(user._id.toString())
+    // Filter unassigned users
+    const unassignedUsers = allDeptUsers.filter(user => 
+      !assignedIds.has(user._id.toString())
     );
 
-    res.json(unassignedTechUsers);
+    res.json(unassignedUsers);
   } catch (error) {
-    console.error('Get unassigned tech users error:', error);
+    console.error('Get unassigned users error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 // HR Department - Issues (Protected routes)
 app.get('/api/issues', auth, async (req, res) => {

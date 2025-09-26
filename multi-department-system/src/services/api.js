@@ -254,32 +254,45 @@ class ApiService {
     return response.json();
   }
 
-  async addTeamMember(techUserId) {
+  // Department-aware: add member to team
+  async addTeamMemberDept(userId, department) {
     const response = await fetch(`${API_BASE_URL}/teams/add-member`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({ techUserId }),
+      body: JSON.stringify({ userId, department }),
     });
     
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({}));
       throw new Error(error.error || 'Failed to add team member');
     }
     
     return response.json();
   }
 
-  async removeTeamMember(techUserId) {
-    const response = await fetch(`${API_BASE_URL}/teams/remove-member/${techUserId}`, {
+  // Backward-compatible: add tech member (uses old shape)
+  async addTeamMember(techUserId) {
+    return this.addTeamMemberDept(techUserId, 'Tech');
+  }
+
+  // Department-aware: remove member from team
+  async removeTeamMemberDept(userId, department) {
+    const response = await fetch(`${API_BASE_URL}/teams/remove-member/${userId}?department=${encodeURIComponent(department)}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to remove team member');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to remove team member');
     }
     
     return response.json();
+  }
+
+  // Backward-compatible: remove tech member (uses old endpoint shape)
+  async removeTeamMember(techUserId) {
+    return this.removeTeamMemberDept(techUserId, 'Tech');
   }
 
   async getMyHR() {
@@ -294,15 +307,50 @@ class ApiService {
     return response.json();
   }
 
-  async getUnassignedTechUsers() {
-    const response = await fetch(`${API_BASE_URL}/teams/unassigned-tech`, {
+  // Department-aware: get unassigned users by department
+  async getUnassignedUsers(department) {
+    const response = await fetch(`${API_BASE_URL}/teams/unassigned/${encodeURIComponent(department)}`, {
       headers: this.getHeaders(),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch unassigned tech users');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch unassigned users');
     }
     
+    return response.json();
+  }
+
+  // Backward-compatible: get unassigned tech users
+  async getUnassignedTechUsers() {
+    return this.getUnassignedUsers('Tech');
+  }
+
+  // Get users by department (generic)
+  async getUsersByDepartment(department) {
+    const response = await fetch(`${API_BASE_URL}/users/department/${encodeURIComponent(department)}`, {
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch users by department');
+    }
+    
+    return response.json();
+  }
+
+  // HR-only: change user department
+  async changeUserDepartment(userId, newDepartment) {
+    const response = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(userId)}/change-department`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ newDepartment }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to change user department');
+    }
     return response.json();
   }
 }
