@@ -190,7 +190,7 @@ const FinanceDashboard = ({ user, onLogout }) => {
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                    <div className="w-8 h-8 bg-primary-500 rounded-md flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">M</span>
                     </div>
                   </div>
@@ -405,7 +405,7 @@ const FinanceDashboard = ({ user, onLogout }) => {
                             {issue.status === 'routed' && (
                               <button
                                 onClick={() => updateIssueStatus(issue._id, 'working')}
-                                className="text-indigo-600 hover:text-indigo-900"
+                                className="text-primary-600 hover:text-primary-900"
                               >
                                 Start Working
                               </button>

@@ -247,7 +247,7 @@ const TechDashboard = ({ user, onLogout }) => {
                 onClick={() => setActiveTab('issues')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'issues'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -257,7 +257,7 @@ const TechDashboard = ({ user, onLogout }) => {
                 onClick={() => setActiveTab('expenses')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'expenses'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -273,7 +273,7 @@ const TechDashboard = ({ user, onLogout }) => {
             {activeTab === 'issues' && (
               <button
                 onClick={() => setShowNewIssueForm(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 Report Issue to HR
               </button>
@@ -318,7 +318,7 @@ const TechDashboard = ({ user, onLogout }) => {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary-500 rounded-md flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">W</span>
                   </div>
                 </div>
@@ -538,7 +538,7 @@ const TechDashboard = ({ user, onLogout }) => {
                               {issue.status === 'routed' && (
                                 <button
                                   onClick={() => updateIssueStatus(issue._id, 'working')}
-                                  className="text-indigo-600 hover:text-indigo-900"
+                                  className="text-primary-600 hover:text-primary-900"
                                 >
                                   Start Working
                                 </button>
