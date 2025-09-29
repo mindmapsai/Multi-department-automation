@@ -109,7 +109,7 @@ const ITDashboard = ({ user, onLogout }) => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading IT Dashboard...</p>
         </div>
       </div>
@@ -149,7 +149,7 @@ const ITDashboard = ({ user, onLogout }) => {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary-500 rounded-md flex items-center justify-center">
                     <span className="text-white font-bold">A</span>
                   </div>
                 </div>
@@ -222,7 +222,7 @@ const ITDashboard = ({ user, onLogout }) => {
         <div className="mb-6">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors"
+            className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md transition-colors"
           >
             {showCreateForm ? 'Cancel' : 'Report New Issue to HR'}
           </button>
@@ -242,7 +242,7 @@ const ITDashboard = ({ user, onLogout }) => {
                     type="text"
                     value={newIssue.title}
                     onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     required
                   />
                 </div>
@@ -253,7 +253,7 @@ const ITDashboard = ({ user, onLogout }) => {
                   <select
                     value={newIssue.category}
                     onChange={(e) => setNewIssue({ ...newIssue, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="hardware">Hardware</option>
                     <option value="software">Software</option>
@@ -273,7 +273,7 @@ const ITDashboard = ({ user, onLogout }) => {
                 <select
                   value={newIssue.priority}
                   onChange={(e) => setNewIssue({ ...newIssue, priority: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -289,13 +289,13 @@ const ITDashboard = ({ user, onLogout }) => {
                   value={newIssue.description}
                   onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   required
                 />
               </div>
               <button
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors"
+                className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md transition-colors"
               >
                 Submit Issue
               </button>
@@ -365,7 +365,7 @@ const ITDashboard = ({ user, onLogout }) => {
                         {issue.status === 'routed' && (
                           <button
                             onClick={() => updateIssueStatus(issue._id, 'working')}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            className="text-primary-600 hover:text-primary-900"
                           >
                             Start Working
                           </button>
