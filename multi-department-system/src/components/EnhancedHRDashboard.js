@@ -41,6 +41,7 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
       setIssues(issuesResponse || []);
       try { setRoutingSuggestions(await ApiService.get('/issues/routing-suggestions') || []); } catch { setRoutingSuggestions([]); }
       if (activeTab === 'teams') await loadTeamData();
+      if (activeTab === 'expenses') await loadExpenseData();
     } catch (error) {
       console.error('Failed to load HR dashboard data:', error);
       setNotification(`Failed to load data: ${error.message}`);
@@ -65,6 +66,34 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Failed to load team data:', error);
       setNotification('Failed to load team data');
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const loadExpenseData = async () => {
+    try {
+      const [pendingResponse, allResponse] = await Promise.all([
+        ApiService.get('/expenses/pending'),
+        ApiService.get('/expenses')
+      ]);
+      setPendingExpenses(pendingResponse || []);
+      setAllExpenses(allResponse || []);
+    } catch (error) {
+      console.error('Failed to load expense data:', error);
+      setNotification('Failed to load expense data');
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const handleExpenseApproval = async (expenseId, status, hrNotes = '') => {
+    try {
+      await ApiService.put(`/expenses/${expenseId}/approve`, { status, hrNotes });
+      await loadExpenseData();
+      setNotification(`Expense ${status} successfully`);
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('Failed to update expense:', error);
+      setNotification('Failed to update expense status');
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -254,24 +283,9 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
                           {issue.autoRouted && (<div className="text-xs text-primary-600 mt-1">🤖 Auto-routed</div>)}
                         </div>
                       </td>
-                      <td className="table-cell">
-                        <div className="text-sm text-secondary-900">{issue.reportedBy}</div>
-                        <div className="text-sm text-secondary-600">{issue.reportedByDepartment}</div>
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex flex-col gap-1">
-                          <span className="badge bg-secondary-100 text-secondary-800">{issue.category}</span>
-                          <span className={`badge ${priorityClass(issue.priority)}`}>{issue.priority}</span>
-                        </div>
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex flex-col gap-1">
-                          <span className={`badge ${statusClass(issue.status)}`}>{issue.status}</span>
-                          {issue.routedToDepartment && (
-                            <div className="text-xs text-secondary-600">→ {issue.routedToDepartment}{issue.assignedToDepartmentUserName && (<div>({issue.assignedToDepartmentUserName})</div>)}</div>
-                          )}
-                        </div>
-                      </td>
+                      <td className="table-cell"><div className="text-sm text-secondary-900">{issue.reportedBy}</div><div className="text-sm text-secondary-600">{issue.reportedByDepartment}</div></td>
+                      <td className="table-cell"><div className="flex flex-col gap-1"><span className="badge bg-secondary-100 text-secondary-800">{issue.category}</span><span className={`badge ${priorityClass(issue.priority)}`}>{issue.priority}</span></div></td>
+                      <td className="table-cell"><div className="flex flex-col gap-1"><span className={`badge ${statusClass(issue.status)}`}>{issue.status}</span>{issue.routedToDepartment && (<div className="text-xs text-secondary-600">→ {issue.routedToDepartment}{issue.assignedToDepartmentUserName && (<div>({issue.assignedToDepartmentUserName})</div>)}</div>)}</div></td>
                       <td className="table-cell text-sm font-medium">
                         {issue.status === 'pending' && (
                           <div className="flex flex-col gap-1">
@@ -280,9 +294,7 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
                             <button onClick={() => handleManualRoute(issue._id, 'Tech', null, null)} className="btn-ghost text-purple-600 hover:text-purple-700">Route to Tech</button>
                           </div>
                         )}
-                        {issue.status === 'resolved' && (
-                          <button onClick={() => handleStatusUpdate(issue._id, 'closed')} className="btn-ghost">Close Issue</button>
-                        )}
+                        {issue.status === 'resolved' && (<button onClick={() => handleStatusUpdate(issue._id, 'closed')} className="btn-ghost">Close Issue</button>)}
                       </td>
                     </tr>
                   ))}
@@ -345,10 +357,7 @@ const EnhancedHRDashboard = ({ user, onLogout }) => {
               <div className="space-y-4">
                 {availableUsers.map((u) => (
                   <div key={u._id} className="flex justify-between items-center p-3 border rounded">
-                    <div>
-                      <div className="font-medium">{u.name}</div>
-                      <div className="text-sm text-secondary-600">{u.email}</div>
-                    </div>
+                    <div><div className="font-medium">{u.name}</div><div className="text-sm text-secondary-600">{u.email}</div></div>
                     <button onClick={() => { handleAddTeamMember(u._id); setShowAddMemberModal(false); }} className="btn-primary text-sm">Add</button>
                   </div>
                 ))}
