@@ -145,7 +145,7 @@ const HRDashboard = ({ user, onLogout }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'working': return 'bg-blue-100 text-blue-800';
+      case 'working': return 'bg-primary-100 text-blue-800';
       case 'resolved': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -183,7 +183,7 @@ const HRDashboard = ({ user, onLogout }) => {
                 onClick={() => setActiveTab('issues')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'issues'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -193,7 +193,7 @@ const HRDashboard = ({ user, onLogout }) => {
                 onClick={() => setActiveTab('routing')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'routing'
-                    ? 'border-indigo-500 text-indigo-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -235,7 +235,7 @@ const HRDashboard = ({ user, onLogout }) => {
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                    <div className="w-8 h-8 bg-primary-500 rounded-md flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">W</span>
                     </div>
                   </div>
@@ -284,7 +284,7 @@ const HRDashboard = ({ user, onLogout }) => {
                 </div>
                 <button
                   onClick={loadIssues}
-                  className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                  className="px-3 py-1 text-xs font-medium text-primary-700 bg-primary-100 rounded-md hover:bg-primary-200 transition-colors"
                 >
                   🔄 Refresh
                 </button>
@@ -331,7 +331,7 @@ const HRDashboard = ({ user, onLogout }) => {
                         <>
                           <button
                             onClick={() => updateIssueStatus(issue._id, 'working')}
-                            className="px-3 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex items-center gap-1"
+                            className="px-3 py-1 text-xs font-medium rounded-md bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors flex items-center gap-1"
                           >
                             🔄 Start Working On This
                           </button>
@@ -362,7 +362,7 @@ const HRDashboard = ({ user, onLogout }) => {
                       {issue.status === 'resolved' && (
                         <button
                           onClick={() => updateIssueStatus(issue._id, 'working')}
-                          className="px-3 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex items-center gap-1"
+                          className="px-3 py-1 text-xs font-medium rounded-md bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors flex items-center gap-1"
                         >
                           🔄 Reopen Issue
                         </button>
@@ -393,7 +393,7 @@ const HRDashboard = ({ user, onLogout }) => {
                         loadRoutingSuggestions();
                         loadIssues();
                       }}
-                      className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                      className="px-3 py-1 text-xs font-medium text-primary-700 bg-primary-100 rounded-md hover:bg-primary-200 transition-colors"
                     >
                       🔄 Refresh
                     </button>
@@ -439,7 +439,7 @@ const HRDashboard = ({ user, onLogout }) => {
                           </div>
                           <button
                             onClick={() => openRoutingModal(suggestion)}
-                            className="ml-4 px-3 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+                            className="ml-4 px-3 py-1 text-xs font-medium rounded-md bg-primary-100 text-primary-700 hover:bg-indigo-200 transition-colors"
                           >
                             Route Issue
                           </button>
@@ -473,7 +473,7 @@ const HRDashboard = ({ user, onLogout }) => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             <div className="flex-shrink-0">
-                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                                 <span className="text-blue-600 font-medium text-sm">T</span>
                               </div>
                             </div>
@@ -605,7 +605,7 @@ const HRDashboard = ({ user, onLogout }) => {
                 type="button"
                 onClick={handleRouteToDepartment}
                 disabled={!selectedDepartment}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Route Issue
               </button>
